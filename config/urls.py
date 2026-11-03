@@ -7,6 +7,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("health", health_check),
     path("api/", include("products.urls")),
+    path("api/", include("cart.urls")),
     # Must stay last: unknown routes return JSON even when DEBUG=True
     # (Django ignores handler404 in DEBUG mode).
     re_path(r"^.*$", not_found),
