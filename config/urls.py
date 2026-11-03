@@ -1,11 +1,12 @@
 from django.contrib import admin
-from django.urls import path, re_path
+from django.urls import include, path, re_path
 
 from core.views import health_check, not_found
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("health", health_check),
+    path("api/", include("products.urls")),
     # Must stay last: unknown routes return JSON even when DEBUG=True
     # (Django ignores handler404 in DEBUG mode).
     re_path(r"^.*$", not_found),
