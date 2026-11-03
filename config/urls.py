@@ -1,9 +1,15 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, re_path
 
-from core.views import health_check
+from core.views import health_check, not_found
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("health", health_check),
+    # Must stay last: unknown routes return JSON even when DEBUG=True
+    # (Django ignores handler404 in DEBUG mode).
+    re_path(r"^.*$", not_found),
 ]
+
+handler404 = "core.views.not_found"
+handler500 = "core.views.server_error"
