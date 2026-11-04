@@ -6,15 +6,19 @@ A REST API for a clothing store, covering a product catalogue and a shopping car
 ![Django](https://img.shields.io/badge/Django-5.2-092E20?logo=django&logoColor=white)
 ![DRF](https://img.shields.io/badge/DRF-3.18-A30000?logo=django&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-required-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-57%20passed-brightgreen?logo=pytest&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-59%20passed-brightgreen?logo=pytest&logoColor=white)
 ![Coverage](https://img.shields.io/badge/coverage-84%25-brightgreen)
 
 ## Live Demo
 
 | | URL |
 |---|---|
-| API | `https://<your-app>.onrender.com` *(coming soon)* |
-| Swagger UI | `https://<your-app>.onrender.com/api/docs` *(coming soon)* |
+| Base URL | https://ecommerce-api-688p.onrender.com (redirects to Swagger) |
+| Swagger UI | https://ecommerce-api-688p.onrender.com/api/docs |
+| Products | https://ecommerce-api-688p.onrender.com/api/products |
+| Health | https://ecommerce-api-688p.onrender.com/health |
+
+> **Note:** The API runs on Render's free tier. After about 15 minutes without traffic the service goes to sleep, so the first request after that can take up to a minute while it wakes up. Requests after that are fast.
 
 ## Features
 
@@ -133,7 +137,7 @@ Once it is running:
 The tests run against a real PostgreSQL test database (`test_ecommerce_db`), which pytest-django creates automatically.
 
 ```bash
-pytest                                              # 57 tests
+pytest                                              # 59 tests
 pytest -v --cov=products --cov=cart --cov=core      # with coverage (84%)
 pytest --create-db                                  # after changing models
 python scripts/concurrency_check.py                 # standalone race-condition demo
@@ -296,8 +300,16 @@ RESULT: PASS - no overselling
 ## Postman
 
 1. In Postman, go to **Import** and choose `postman/ecommerce-api.postman_collection.json`.
-2. Make sure the server is running and the database is seeded. `base_url` defaults to `http://127.0.0.1:8000`; change it in the collection's **Variables** tab if you need to.
+2. Make sure the server is running and the database is seeded. `base_url` defaults to `http://127.0.0.1:8000`.
 3. Right-click the collection, choose **Run collection**, then **Run**.
+
+**Running against production:**
+1. Open the collection and go to the **Variables** tab.
+2. Set the **Current value** of `base_url` to `https://ecommerce-api-688p.onrender.com`, with no trailing slash, then **Save**.
+3. Open https://ecommerce-api-688p.onrender.com/health once in a browser first, to wake the free-tier service up.
+4. Run the collection as above.
+
+The live database is already seeded, and the cart flow returns all the stock it reserves, so running the collection doesn't change the live data.
 
 The test scripts save `product_id`, `cart_id`, and `item_id` into collection variables, so the requests chain together in order: Health → Products → Cart → Error Cases. Every request has assertions, and the cart flow returns all reserved stock by the end.
 
