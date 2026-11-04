@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.postgres",
 
     "rest_framework",
+    "drf_spectacular",
     "core",
     "products",
     "cart",
@@ -140,12 +141,33 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "core.exceptions.custom_exception_handler",
     "DEFAULT_PAGINATION_CLASS": "core.pagination.StandardPagination",
     "DEFAULT_RENDERER_CLASSES": _renderers,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Public API: no authentication. (The Django admin uses its own session auth.)
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/minute",
     },
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "E-commerce API",
+    "DESCRIPTION": (
+        "Products catalogue and shopping cart with safe stock reservation.\n\n"
+        "Every response uses the same envelope: `{\"success\": true, \"data\": ...}` "
+        "or `{\"success\": false, \"error\": {\"code\", \"message\", \"details\"}}`."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "TAGS": [
+        {"name": "Health", "description": "Service status."},
+        {"name": "Products", "description": "Browse, filter and sort the catalogue."},
+        {"name": "Cart", "description": "Add and remove items. Adding reserves stock; removing returns it."},
+    ],
 }
 
 

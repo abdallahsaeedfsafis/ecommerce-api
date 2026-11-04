@@ -33,17 +33,21 @@ class ProductQuerySerializer(serializers.Serializer):
 
     SORT_CHOICES = ["price_asc", "price_desc", "newest", "oldest"]
 
-    category = serializers.SlugField(required=False)
+    category = serializers.SlugField(required=False, help_text="Category slug, e.g. `men`.")
     min_price = serializers.DecimalField(
-        max_digits=10, decimal_places=2, min_value=Decimal("0"), required=False
+        max_digits=10, decimal_places=2, min_value=Decimal("0"), required=False,
+        help_text="Minimum price (inclusive).",
     )
     max_price = serializers.DecimalField(
-        max_digits=10, decimal_places=2, min_value=Decimal("0"), required=False
+        max_digits=10, decimal_places=2, min_value=Decimal("0"), required=False,
+        help_text="Maximum price (inclusive). Must be >= min_price.",
     )
-    sort = serializers.ChoiceField(choices=SORT_CHOICES, default="newest")
+    sort = serializers.ChoiceField(choices=SORT_CHOICES, default="newest", help_text="Sort order.")
     # Only validated here; StandardPagination reads them and caps `limit`.
-    page = serializers.IntegerField(min_value=1, required=False)
-    limit = serializers.IntegerField(min_value=1, required=False)
+    page = serializers.IntegerField(min_value=1, required=False, help_text="Page number (default 1).")
+    limit = serializers.IntegerField(
+        min_value=1, required=False, help_text="Items per page (default 10, capped at 100)."
+    )
 
     def validate(self, attrs):
         min_price = attrs.get("min_price")

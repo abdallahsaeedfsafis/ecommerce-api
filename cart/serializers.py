@@ -8,14 +8,18 @@ from .models import Cart, CartItem
 
 
 class AddToCartSerializer(serializers.Serializer):
-    cart_id = serializers.UUIDField(required=False, allow_null=True)
+    cart_id = serializers.UUIDField(
+        required=False, allow_null=True, help_text="Existing active cart. Omit to create a new cart."
+    )
     product_id = serializers.UUIDField()
-    size = serializers.CharField(max_length=20)
+    size = serializers.CharField(max_length=20, help_text="Must be one of the product's sizes.")
     quantity = serializers.IntegerField(min_value=1, max_value=100, default=1)
 
 
 class RemoveFromCartQuerySerializer(serializers.Serializer):
-    quantity = serializers.IntegerField(min_value=1, required=False)
+    quantity = serializers.IntegerField(
+        min_value=1, required=False, help_text="Units to remove. Omit to remove the whole item."
+    )
 
 
 class CartProductSerializer(serializers.ModelSerializer):

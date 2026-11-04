@@ -21,3 +21,25 @@ class StandardPagination(PageNumberPagination):
                 "total_pages": self.page.paginator.num_pages,
             },
         })
+
+    def get_paginated_response_schema(self, schema):
+        """OpenAPI shape of get_paginated_response (used by drf-spectacular)."""
+        integer = {"type": "integer"}
+        return {
+            "type": "object",
+            "required": ["success", "data", "meta"],
+            "properties": {
+                "success": {"type": "boolean", "example": True},
+                "data": schema,
+                "meta": {
+                    "type": "object",
+                    "required": ["page", "limit", "total", "total_pages"],
+                    "properties": {
+                        "page": {**integer, "example": 1},
+                        "limit": {**integer, "example": 10},
+                        "total": {**integer, "example": 20},
+                        "total_pages": {**integer, "example": 2},
+                    },
+                },
+            },
+        }

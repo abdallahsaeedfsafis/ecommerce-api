@@ -1,0 +1,753 @@
+{
+  "info": {
+    "name": "E-commerce API",
+    "description": "Products and cart endpoints. Use **Run collection** to execute everything in order: test scripts save `product_id`, `cart_id` and `item_id` into collection variables.\n\nRequires seeded data (`python manage.py seed`).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "description": "Service status.",
+      "item": [
+        {
+          "name": "Health check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=true\", () => pm.expect(body.success).to.eql(true));",
+                  "pm.test(\"Database connected\", () => pm.expect(body.data.database).to.eql(\"connected\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Checks that the API is up and the database is reachable."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "description": "Browse the catalogue. Run first: it saves `product_id` for the Cart folder.",
+      "item": [
+        {
+          "name": "List products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=true\", () => pm.expect(body.success).to.eql(true));",
+                  "",
+                  "pm.test(\"Has pagination meta\", () => pm.expect(body.meta).to.include.keys(\"page\", \"limit\", \"total\", \"total_pages\"));",
+                  "",
+                  "const products = body.data.filter(p => p.sizes.length > 0);",
+                  "const pick = products.find(p => p.in_stock);",
+                  "pm.collectionVariables.set(\"product_id\", pick.id);",
+                  "pm.collectionVariables.set(\"product_size\", pick.sizes[0]);",
+                  "",
+                  "// Lowest stock product (stock < 100 so stock + 1 still passes the max-100 validation).",
+                  "const low = products.filter(p => p.stock_quantity < 100).sort((a, b) => a.stock_quantity - b.stock_quantity)[0];",
+                  "pm.collectionVariables.set(\"low_stock_product_id\", low.id);",
+                  "pm.collectionVariables.set(\"low_stock_size\", low.sizes[0]);",
+                  "pm.collectionVariables.set(\"over_stock_quantity\", low.stock_quantity + 1);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products?limit=100",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "Lists products (newest first). Saves an in-stock `product_id` + `product_size` for the cart requests, and the lowest-stock product for the 409 error case."
+          }
+        },
+        {
+          "name": "Filter by category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=true\", () => pm.expect(body.success).to.eql(true));",
+                  "pm.test(\"All in men\", () => body.data.forEach(p => pm.expect(p.category.slug).to.eql(\"men\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products?category=men",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "men"
+                }
+              ]
+            },
+            "description": "Only products in the `men` category (slug). An unknown slug returns an empty list."
+          }
+        },
+        {
+          "name": "Filter by price range",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=true\", () => pm.expect(body.success).to.eql(true));",
+                  "",
+                  "pm.test(\"Prices within range\", () => body.data.forEach(p => {",
+                  "    pm.expect(Number(p.price)).to.be.within(20, 60);",
+                  "}));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products?min_price=20&max_price=60",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "min_price",
+                  "value": "20"
+                },
+                {
+                  "key": "max_price",
+                  "value": "60"
+                }
+              ]
+            },
+            "description": "Products with 20 <= price <= 60 (both bounds inclusive)."
+          }
+        },
+        {
+          "name": "Sort by price (ascending)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=true\", () => pm.expect(body.success).to.eql(true));",
+                  "",
+                  "const prices = body.data.map(p => Number(p.price));",
+                  "pm.test(\"Sorted ascending\", () => pm.expect(prices).to.eql([...prices].sort((a, b) => a - b)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products?sort=price_asc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "price_asc"
+                }
+              ]
+            },
+            "description": "Sort options: `price_asc`, `price_desc`, `newest` (default), `oldest`."
+          }
+        },
+        {
+          "name": "Pagination",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=true\", () => pm.expect(body.success).to.eql(true));",
+                  "",
+                  "pm.test(\"Meta reflects page and limit\", () => {",
+                  "    pm.expect(body.meta.page).to.eql(2);",
+                  "    pm.expect(body.meta.limit).to.eql(5);",
+                  "    pm.expect(body.data.length).to.be.at.most(5);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products?page=2&limit=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "2"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Page 2 with 5 items per page. `limit` is capped at 100."
+          }
+        },
+        {
+          "name": "Product detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=true\", () => pm.expect(body.success).to.eql(true));",
+                  "",
+                  "pm.test(\"Is the saved product\", () => pm.expect(body.data.id).to.eql(pm.collectionVariables.get(\"product_id\")));",
+                  "pm.test(\"Has detail fields\", () => pm.expect(body.data).to.include.keys(\"description\", \"created_at\", \"updated_at\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{product_id}}"
+              ]
+            },
+            "description": "One product, including `description`, `created_at` and `updated_at`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "description": "Adding reserves stock; removing returns it. Run in order: saves `cart_id` and `item_id`.",
+      "item": [
+        {
+          "name": "Add to new cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=true\", () => pm.expect(body.success).to.eql(true));",
+                  "",
+                  "pm.collectionVariables.set(\"cart_id\", body.data.id);",
+                  "const item = body.data.items.find(i => i.product.id === pm.collectionVariables.get(\"product_id\"));",
+                  "pm.collectionVariables.set(\"item_id\", item.id);",
+                  "pm.test(\"Item quantity is 2\", () => pm.expect(item.quantity).to.eql(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart"
+              ]
+            },
+            "description": "No `cart_id` \u2192 creates a cart. Reserves 2 units of stock. Saves `cart_id` and `item_id`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{product_id}}\",\n  \"size\": \"{{product_size}}\",\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Add to same cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=true\", () => pm.expect(body.success).to.eql(true));",
+                  "",
+                  "pm.test(\"Still one item, quantity 3\", () => {",
+                  "    pm.expect(body.data.items.length).to.eql(1);",
+                  "    pm.expect(body.data.items[0].quantity).to.eql(3);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart"
+              ]
+            },
+            "description": "Same product + size on the same cart \u2192 quantities merge into one item (2 + 1 = 3).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cart_id\": \"{{cart_id}}\",\n  \"product_id\": \"{{product_id}}\",\n  \"size\": \"{{product_size}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=true\", () => pm.expect(body.success).to.eql(true));",
+                  "",
+                  "pm.test(\"Totals are consistent\", () => {",
+                  "    const sum = body.data.items.reduce((acc, i) => acc + Number(i.subtotal), 0);",
+                  "    pm.expect(body.data.total_items).to.eql(3);",
+                  "    pm.expect(Number(body.data.total_price)).to.be.closeTo(sum, 0.001);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/cart/{{cart_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "{{cart_id}}"
+              ]
+            },
+            "description": "Cart with items, `total_items` (sum of quantities) and `total_price`."
+          }
+        },
+        {
+          "name": "Reduce item quantity",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=true\", () => pm.expect(body.success).to.eql(true));",
+                  "pm.test(\"Quantity reduced to 2\", () => pm.expect(body.data.items[0].quantity).to.eql(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/cart/{{item_id}}?quantity=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "{{item_id}}"
+              ],
+              "query": [
+                {
+                  "key": "quantity",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "The id here is a **cart item** id. Removes 1 unit and returns it to stock."
+          }
+        },
+        {
+          "name": "Remove item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=true\", () => pm.expect(body.success).to.eql(true));",
+                  "",
+                  "pm.test(\"Cart is empty\", () => {",
+                  "    pm.expect(body.data.items).to.be.empty;",
+                  "    pm.expect(body.data.total_price).to.eql(\"0.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/cart/{{item_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "{{item_id}}"
+              ]
+            },
+            "description": "No `quantity` \u2192 removes the whole item and returns all its stock."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Cases",
+      "description": "Every error uses `{success: false, error: {code, message, details}}`.",
+      "item": [
+        {
+          "name": "Invalid size (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=false\", () => pm.expect(body.success).to.eql(false));",
+                  "",
+                  "pm.test(\"Error code is BAD_REQUEST\", () => pm.expect(body.error.code).to.eql(\"BAD_REQUEST\"));",
+                  "pm.test(\"Lists available sizes\", () => pm.expect(body.error.details.available_sizes).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart"
+              ]
+            },
+            "description": "Size not offered by the product \u2192 400 `BAD_REQUEST` with `available_sizes` in details.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{product_id}}\",\n  \"size\": \"XXXL\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Invalid price range (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=false\", () => pm.expect(body.success).to.eql(false));",
+                  "",
+                  "pm.test(\"Error code is VALIDATION_ERROR\", () => pm.expect(body.error.code).to.eql(\"VALIDATION_ERROR\"));",
+                  "pm.test(\"Points at min_price\", () => pm.expect(body.error.details).to.have.property(\"min_price\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products?min_price=100&max_price=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "min_price",
+                  "value": "100"
+                },
+                {
+                  "key": "max_price",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "`min_price` greater than `max_price` \u2192 400 `VALIDATION_ERROR`."
+          }
+        },
+        {
+          "name": "Unknown product (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=false\", () => pm.expect(body.success).to.eql(false));",
+                  "",
+                  "pm.test(\"Error code is NOT_FOUND\", () => pm.expect(body.error.code).to.eql(\"NOT_FOUND\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "description": "Valid UUID that does not exist \u2192 404 `NOT_FOUND`."
+          }
+        },
+        {
+          "name": "Quantity more than stock (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Envelope success=false\", () => pm.expect(body.success).to.eql(false));",
+                  "",
+                  "pm.test(\"Error code is INSUFFICIENT_STOCK\", () => pm.expect(body.error.code).to.eql(\"INSUFFICIENT_STOCK\"));",
+                  "",
+                  "pm.test(\"Reports requested vs available\", () => {",
+                  "    pm.expect(body.error.details.requested).to.eql(Number(pm.collectionVariables.get(\"over_stock_quantity\")));",
+                  "    pm.expect(body.error.details.available).to.eql(body.error.details.requested - 1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cart"
+              ]
+            },
+            "description": "Asks for stock + 1 of the lowest-stock product \u2192 409 `INSUFFICIENT_STOCK`; stock is unchanged.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{low_stock_product_id}}\",\n  \"size\": \"{{low_stock_size}}\",\n  \"quantity\": {{over_stock_quantity}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "product_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "product_size",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cart_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "item_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "low_stock_product_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "low_stock_size",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "over_stock_quantity",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
